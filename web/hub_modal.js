@@ -56,7 +56,7 @@ function createHubModalDOM() {
                     <div class="usp-header-icon gold">🌟</div>
                     <div>
                         <h3 class="usp-header-title">마스터 프리셋 관리자</h3>
-                        <p class="usp-header-subtitle">워크플로우 내 여러 노드의 설정을 한 번에 일괄 관리합니다</p>
+                        <p class="usp-header-subtitle">마스터 프리셋은 <strong>현재 워크플로우에 저장</strong>됩니다 (다른 워크플로우 적용 시 하단 <strong>💡 주의사항 가이드</strong> 참조)</p>
                     </div>
                 </div>
                 <button class="usp-btn-close" id="usp-hub-btn-close" title="Close">✕</button>

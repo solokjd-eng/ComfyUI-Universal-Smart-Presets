@@ -1321,3 +1321,27 @@
     display: flex;
     justify-content: flex-end;
 }
+
+/* List Guide Hint Box */
+.usp-list-guide-hint {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 1.05rem;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    line-height: 1.45;
+}
+
+.usp-list-guide-hint b {
+    color: #a5b4fc;
+}
+
+.usp-list-guide-hint span:first-child {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}

@@ -78,6 +78,18 @@ export function showGuideModal() {
                 </div>
 
                 <div class="usp-guide-body">
+                    <!-- Section 0: Storage Notice -->
+                    <div class="usp-guide-section" style="border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); border-radius: 8px; padding: 12px 14px;">
+                        <div class="usp-guide-section-title" style="color: #fbbf24; margin-bottom: 6px;">
+                            <span>📌</span> 마스터 허브 프리셋 저장 위치 & 타 워크플로우 적용 안내
+                        </div>
+                        <p class="usp-guide-text" style="line-height: 1.5;">
+                            • <b>마스터 허브 프리셋</b>은 개별 노드 프리셋과 달리 <b>현재 워크플로우(Hub 노드 데이터) 내부에 저장</b>됩니다.<br>
+                            • 따라서 <b>다른 워크플로우나 다른 PC에 동일한 마스터 프리셋을 적용</b>하려면, 하단의 <b>[📤 백업 (Export)]</b> 버튼으로 <code style="color:#fde68a;">.json</code> 파일을 내보낸 후 대상 워크플로우에서 <b>[📥 불러오기 (Import)]</b>를 이용해 주세요.<br>
+                            • (※ <b>개별 노드의 글로벌 프리셋</b>은 ComfyUI 시스템에 영구 저장되므로 내보내기/가져오기 없이도 모든 워크플로우에서 즉시 공유됩니다.)
+                        </p>
+                    </div>
+
                     <!-- Section 1 -->
                     <div class="usp-guide-section">
                         <div class="usp-guide-section-title">
@@ -170,6 +182,9 @@ export function initModal(callbacks) {
     createModalDOM();
 }
 
+/**
+ * Main Global Presets Modal Creation
+ */
 function createModalDOM() {
     const existing = document.getElementById("usp-presets-modal");
     if (existing) {
@@ -186,7 +201,7 @@ function createModalDOM() {
                     <div class="usp-header-icon">🌐</div>
                     <div>
                         <h3 class="usp-header-title" id="usp-node-title">글로벌 프리셋 관리자</h3>
-                        <p class="usp-header-subtitle" id="usp-node-subtitle">모든 워크플로우에서 공유되는 전역 프리셋을 관리합니다</p>
+                        <p class="usp-header-subtitle" id="usp-node-subtitle">ComfyUI 전역에 저장되어 동일한 노드라면 다른 워크플로우에서도 즉시 적용됩니다</p>
                     </div>
                 </div>
                 <button class="usp-btn-close" id="usp-btn-close" title="Close">✕</button>
@@ -217,9 +232,6 @@ function createModalDOM() {
                     <button class="usp-btn usp-btn-secondary" id="usp-btn-import" title="Import from JSON">
                         <span>📥</span> 불러오기 (Import)
                     </button>
-                    <button class="usp-btn usp-btn-guide" id="usp-btn-guide" title="타 워크플로우 적용 및 백업 주의사항 가이드">
-                        <span>💡</span> 다른 워크플로우 적용/백업 가이드 (주의사항)
-                    </button>
                     <input type="file" id="usp-import-file-input" accept=".json" style="display: none;" />
                 </div>
                 <button class="usp-btn usp-btn-secondary" id="usp-btn-done">닫기</button>
@@ -241,9 +253,6 @@ function createModalDOM() {
     document.getElementById("usp-preset-name-input").addEventListener("keydown", (e) => {
         if (e.key === "Enter") handleSaveCurrent();
     });
-
-    // Guide Modal
-    document.getElementById("usp-btn-guide").addEventListener("click", showGuideModal);
 
     // Import / Export
     document.getElementById("usp-btn-export").addEventListener("click", () => {
@@ -284,7 +293,7 @@ export function showPresetModal(node, options = {}) {
     const nodeTitle = node.title || nodeType;
 
     document.getElementById("usp-node-title").textContent = `🌐 ${nodeTitle} 프리셋 관리자`;
-    document.getElementById("usp-node-subtitle").textContent = `노드 타입: ${nodeType} · 전역(Global) 프리셋 관리`;
+    document.getElementById("usp-node-subtitle").textContent = `노드 타입: ${nodeType} · ComfyUI 전역 저장 (동일 노드면 다른 워크플로우에서도 즉시 적용)`;
 
     const nameInput = document.getElementById("usp-preset-name-input");
     const saveBox = document.getElementById("usp-global-save-box");
@@ -347,6 +356,11 @@ function renderPresetList() {
         `;
         return;
     }
+
+    const hintBar = document.createElement("div");
+    hintBar.className = "usp-list-guide-hint";
+    hintBar.innerHTML = `<span>💡</span> <span>태그(Pill)나 스위치를 클릭하여 원하는 옵션만 <b>켜고 끌 수 있으며(ON/OFF)</b>, <b>[상세 보기]</b>에서 값을 수정한 뒤 프리셋으로 저장 및 즉시 적용할 수 있습니다.</span>`;
+    container.appendChild(hintBar);
 
     presetNames.forEach((presetName, index) => {
         const presetData = presets[presetName];
@@ -958,7 +972,9 @@ function generateDeepDetailsHtml(presetData, presetName, targetNode) {
     return `
         <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 14px; font-size: 1.38rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <span>📋 상세 파라미터 제어 & 인라인 수정:</span>
-            <span style="font-size: 1.05rem; font-weight: normal; color: #94a3b8;">스위치로 적용/제외 및 [-] [+] 버튼으로 간편 조절 (실시간 자동 저장)</span>
+            <span style="font-size: 1.05rem; font-weight: 500; color: #38bdf8; background: rgba(56, 189, 248, 0.08); padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.22);">
+                💡 스위치로 옵션을 켜고 끄거나 값을 수정한 뒤 저장/적용할 수 있습니다 (실시간 자동 저장)
+            </span>
         </div>
         <div class="usp-expanded-params-list">
             ${items.join("")}
