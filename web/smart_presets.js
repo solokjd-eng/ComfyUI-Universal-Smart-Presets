@@ -50,7 +50,7 @@ export function loadPresetsFromStorage() {
                 app.graph?.setDirtyCanvas(true, true);
             }
         })
-        .catch(() => {});
+        .catch(() => { });
 }
 
 export function savePresetsToStorage() {
@@ -64,7 +64,7 @@ export function savePresetsToStorage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presets: presetsStore }),
-    }).catch(() => {});
+    }).catch(() => { });
 }
 
 export function getNodeType(node) {
@@ -82,7 +82,6 @@ export function extractNodeState(node) {
     const nodeType = getNodeType(node);
     const isRgthreeLora = nodeType.includes("Power Lora Loader") || (node.widgets && node.widgets.some(w => w.name && w.name.includes("lora")));
     const isFastGroups = nodeType.includes("Fast Groups") || (node.widgets && node.widgets.some(w => w.type === "custom" && w.group));
-    const mode = (node.mode !== undefined) ? Number(node.mode) : 0;
 
     const state = {
         nodeType: nodeType,
@@ -188,7 +187,7 @@ export function applyNodeState(node, presetData) {
                 if (typeof w.callback === "function") {
                     try {
                         w.callback(w.value);
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             }
         }
@@ -228,7 +227,7 @@ export function applyNodeState(node, presetData) {
             if (typeof node.configure === "function") {
                 try {
                     node.configure({ widgets_values: presetData.widgets_values });
-                } catch (e) {}
+                } catch (e) { }
             }
         }
 
@@ -266,7 +265,7 @@ export function applyNodeState(node, presetData) {
     if (typeof node.onPropertyChanged === "function") {
         try {
             node.onPropertyChanged();
-        } catch (e) {}
+        } catch (e) { }
     }
     app.graph?.setDirtyCanvas(true, true);
 }
@@ -555,7 +554,7 @@ app.registerExtension({
         try {
             localStorage.removeItem("ComfyUI_Master_Hub_Presets_v1");
             localStorage.removeItem("ComfyUI_Universal_Hub_Presets_v1");
-        } catch (e) {}
+        } catch (e) { }
 
         loadStylesheet();
         loadPresetsFromStorage();
