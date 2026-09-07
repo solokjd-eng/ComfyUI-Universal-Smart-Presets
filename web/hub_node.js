@@ -15,17 +15,59 @@ import { extractNodeState, applyNodeState } from "./smart_presets.js";
 import { initHubModal, showHubManageModal } from "./hub_modal.js";
 import { showToast } from "./presets_modal.js";
 
-const ROW_HEIGHT = 34;
-const ROW_GAP = 5;
-const HEADER_HEIGHT = 26;
-const EMPTY_HEIGHT = 44;
-const STATUS_FOOTER_HEIGHT = 28;
-const TOP_CONTROLS_HEIGHT = 92;
-const MAX_VISIBLE_ROWS = 5.5;
-const MAX_LIST_VIEW_HEIGHT = Math.round(MAX_VISIBLE_ROWS * (ROW_HEIGHT + ROW_GAP)); // ~214px
+const ROW_HEIGHT = 24;
+const ROW_GAP = 4;
+const HEADER_HEIGHT = 24;
+const EMPTY_HEIGHT = 38;
+const TOP_BTN_HEIGHT = 28;
+const TOP_CONTROLS_HEIGHT = 40; // 6(top pad) + 28(btn) + 6(bottom pad)
+const BOTTOM_PADDING = 8;
+const MAX_VISIBLE_ROWS = 6.5;
+const MAX_LIST_VIEW_HEIGHT = Math.round(MAX_VISIBLE_ROWS * (ROW_HEIGHT + ROW_GAP)); // ~182px
 const NODE_DEFAULT_WIDTH = 370;
 
 export let hubPresetsStore = {}; // Backwards compatibility
+
+/**
+ * Automatically ensures that the currently active preset is always visible inside the node viewport
+ */
+export function ensureActivePresetInView(node) {
+    if (!node || !node.properties) return;
+    const presets = getHubPresets(node);
+    const presetNames = Object.keys(presets);
+    const count = presetNames.length;
+    if (count === 0) return;
+
+    const activeName = node.properties.active_preset;
+    if (!activeName || !presets[activeName]) return;
+
+    const activeIdx = presetNames.indexOf(activeName);
+    if (activeIdx < 0) return;
+
+    const listTopY = TOP_CONTROLS_HEIGHT;
+    const listBottomY = node.size[1] - BOTTOM_PADDING;
+    const listViewHeight = Math.max(10, listBottomY - listTopY);
+    const viewH = Math.max(10, listViewHeight - HEADER_HEIGHT);
+    const fullContentHeight = HEADER_HEIGHT + count * (ROW_HEIGHT + ROW_GAP);
+    const maxScroll = Math.max(0, fullContentHeight - listViewHeight);
+
+    if (maxScroll <= 0) {
+        node._scrollOffset = 0;
+        return;
+    }
+
+    const itemTop = activeIdx * (ROW_HEIGHT + ROW_GAP);
+    const itemBottom = itemTop + ROW_HEIGHT;
+    let scroll = Math.max(0, Math.min(maxScroll, node._scrollOffset || 0));
+
+    if (itemTop < scroll) {
+        scroll = itemTop;
+    } else if (itemBottom > scroll + viewH) {
+        scroll = Math.min(maxScroll, itemBottom - viewH);
+    }
+
+    node._scrollOffset = scroll;
+}
 
 /**
  * Broadcast updated presets and active state to ALL UniversalPresetHub nodes on canvas in real-time
@@ -40,6 +82,7 @@ export function broadcastHubPresets(presets, activePreset = null) {
             if (activePreset !== null) {
                 n.properties.active_preset = activePreset;
             }
+            ensureActivePresetInView(n);
         }
     }
     updateAllHubNodes();
@@ -81,7 +124,7 @@ export function getHubPresets(hubNode) {
  * Dynamically calculate and set the exact required size for UniversalPresetHub node
  */
 export function computeHubNodeSize(node) {
-    if (!node || !node.size) return [NODE_DEFAULT_WIDTH, 160];
+    if (!node || !node.size) return [NODE_DEFAULT_WIDTH, 140];
     const presets = getHubPresets(node);
     const count = Object.keys(presets).length;
 
@@ -93,7 +136,7 @@ export function computeHubNodeSize(node) {
         listHeight = Math.min(fullContentHeight, HEADER_HEIGHT + MAX_LIST_VIEW_HEIGHT);
     }
 
-    const totalHeight = TOP_CONTROLS_HEIGHT + listHeight + STATUS_FOOTER_HEIGHT + 14;
+    const totalHeight = TOP_CONTROLS_HEIGHT + listHeight + BOTTOM_PADDING;
     const currentW = Math.max(node.size[0] || NODE_DEFAULT_WIDTH, NODE_DEFAULT_WIDTH);
     node.size = [currentW, totalHeight];
     return node.size;
@@ -216,7 +259,7 @@ app.registerExtension({
                         const presets = getHubPresets(node);
                         const count = Object.keys(presets).length;
                         const listTopY = TOP_CONTROLS_HEIGHT;
-                        const listBottomY = node.size[1] - STATUS_FOOTER_HEIGHT - 6;
+                        const listBottomY = node.size[1] - BOTTOM_PADDING;
                         const listViewHeight = listBottomY - listTopY;
                         const totalContentHeight = HEADER_HEIGHT + count * (ROW_HEIGHT + ROW_GAP);
                         const maxScroll = Math.max(0, totalContentHeight - listViewHeight);
@@ -304,7 +347,7 @@ export function getCurrentlySelectedNodes(hubNode) {
 }
 
 /**
- * Configure Ultra-Streamlined 2-Row Controls + Direct On-Canvas Preset Switcher
+ * Configure Ultra-Streamlined Top Action Controls + Selection Status + Direct On-Canvas Preset Switcher
  */
 function setupHubNodeWidgets(node) {
     if (!node.title || node.title.includes("마스터")) {
@@ -316,53 +359,61 @@ function setupHubNodeWidgets(node) {
     if (node._scrollOffset === undefined) node._scrollOffset = 0;
     if (!node._dragState) node._dragState = null;
 
-    // Initialize or update buttons safely without duplicate creation
-    if (!node.widgets || node.widgets.length === 0) {
-        node.widgets = [];
-
-        // 1. Top Row 1: Grand Hub Modal Launcher Button
-        const modalBtn = node.addWidget("button", "🏷️ [유니버셜 프리셋 관리자] 열기 ▼", null, () => {
-            showHubManageModal(node);
-        });
-        node._modalBtn = modalBtn;
-
-        // 2. Top Row 2: Clean Save Selection Button
-        const saveBtn = node.addWidget("button", "💾 선택 노드로 새 유니버셜 프리셋 저장", null, () => {
-            const selectedNodes = getCurrentlySelectedNodes(node);
-            if (selectedNodes.length === 0) {
-                showToast("⚠️ 먼저 캔버스에서 묶고 싶은 노드들을 선택(Ctrl+클릭 / 드래그)해 주세요!", "warning");
-                return;
-            }
-
-            const presets = getHubPresets(node);
-            const defaultName = `유니버셜 세팅 #${Object.keys(presets).length + 1}`;
-            showHubManageModal(node, { focusSave: true, defaultName: defaultName });
-        });
-        node._saveBtn = saveBtn;
-    } else {
-        node._modalBtn = node.widgets[0];
-        node._saveBtn = node.widgets[1];
-    }
+    // Clear LiteGraph standard vertical stacked widgets in favor of sleek canvas buttons
+    node.widgets = [];
 
     // Attach event hooks only once per node instance to prevent recursion
     if (!node._hubHooksInitialized) {
         node._hubHooksInitialized = true;
 
-        // 3. Interactive Mouse Event Handlers for Direct On-Canvas Switching & Reordering
+        // 3. Interactive Mouse Event Handlers for Direct On-Canvas Buttons, Switching & Reordering
         const origOnMouseDown = node.onMouseDown;
         node.onMouseDown = function (e, localPos, canvas) {
             const res = origOnMouseDown ? origOnMouseDown.apply(this, arguments) : false;
             if (res) return res;
 
+            const localX = localPos ? localPos[0] : (e && e.canvasX !== undefined ? e.canvasX - this.pos[0] : 0);
+            const localY = localPos ? localPos[1] : (e && e.canvasY !== undefined ? e.canvasY - this.pos[1] : 0);
+
+            // 1. Top Row Action Buttons: [🎯 캔버스 선택 감지: N개 노드 (저장 가능)] + [⚙️ 설정]
+            const btnY = 6;
+            const btnH = TOP_BTN_HEIGHT;
+            if (localY >= btnY && localY <= btnY + btnH && localX >= 10 && localX <= this.size[0] - 10) {
+                const settingBtnW = 74;
+                const settingBtnX = this.size[0] - 10 - settingBtnW;
+                const saveBtnW = settingBtnX - 6 - 10;
+
+                // Clicked [⚙️ 설정] Button -> Opens Hub Modal Manager
+                if (localX >= settingBtnX && localX <= settingBtnX + settingBtnW) {
+                    showHubManageModal(this);
+                    app.graph?.setDirtyCanvas(true, true);
+                    return true;
+                }
+
+                // Clicked [🎯 캔버스 선택 감지 / 저장] Button
+                if (localX >= 10 && localX <= 10 + saveBtnW) {
+                    const selectedNodes = getCurrentlySelectedNodes(this);
+                    if (selectedNodes.length === 0) {
+                        showToast("⚠️ 먼저 캔버스에서 저장할 노드들을 선택(Ctrl+클릭 / 드래그)해 주세요!", "warning");
+                        return true;
+                    }
+
+                    const presets = getHubPresets(this);
+                    const defaultName = `유니버셜 세팅 #${Object.keys(presets).length + 1}`;
+                    showHubManageModal(this, { focusSave: true, defaultName: defaultName });
+                    app.graph?.setDirtyCanvas(true, true);
+                    return true;
+                }
+            }
+
+            // 2. Preset List Row Clicking / Dragging
             const presets = getHubPresets(this);
             const presetNames = Object.keys(presets);
             const count = presetNames.length;
             if (count === 0) return false;
 
             const listTopY = TOP_CONTROLS_HEIGHT;
-            const listBottomY = this.size[1] - STATUS_FOOTER_HEIGHT - 6;
-            const localX = localPos ? localPos[0] : (e && e.canvasX !== undefined ? e.canvasX - this.pos[0] : 0);
-            const localY = localPos ? localPos[1] : (e && e.canvasY !== undefined ? e.canvasY - this.pos[1] : 0);
+            const listBottomY = this.size[1] - BOTTOM_PADDING;
 
             if (localY >= listTopY + HEADER_HEIGHT && localY <= listBottomY && localX >= 10 && localX <= this.size[0] - 10) {
                 const scroll = this._scrollOffset || 0;
@@ -391,6 +442,7 @@ function setupHubNodeWidgets(node) {
                     // Clicked on the row or Radio Toggle Switch: Activate and sync across ALL hub nodes!
                     applyMasterPresetToWorkflow(presets[targetName], this);
                     broadcastHubPresets(presets, targetName);
+                    ensureActivePresetInView(this);
                     app.graph?.setDirtyCanvas(true, true);
                     return true;
                 }
@@ -409,7 +461,7 @@ function setupHubNodeWidgets(node) {
             const localX = localPos ? localPos[0] : (e && e.canvasX !== undefined ? e.canvasX - this.pos[0] : 0);
             const localY = localPos ? localPos[1] : (e && e.canvasY !== undefined ? e.canvasY - this.pos[1] : 0);
             const listTopY = TOP_CONTROLS_HEIGHT;
-            const listBottomY = this.size[1] - STATUS_FOOTER_HEIGHT - 6;
+            const listBottomY = this.size[1] - BOTTOM_PADDING;
 
             // Handle Active Drag Reordering
             if (this._dragState?.active) {
@@ -422,7 +474,15 @@ function setupHubNodeWidgets(node) {
                 return;
             }
 
-            // Hover Cursor Hint
+            // Top Row Buttons Hover Cursor
+            const btnY = 6;
+            const btnH = TOP_BTN_HEIGHT;
+            if (localY >= btnY && localY <= btnY + btnH && localX >= 10 && localX <= this.size[0] - 10) {
+                if (app.canvas?.canvas) app.canvas.canvas.style.cursor = "pointer";
+                return;
+            }
+
+            // Preset List Hover Cursor
             if (localY >= listTopY + HEADER_HEIGHT && localY <= listBottomY && localX >= 10 && localX <= this.size[0] - 10) {
                 if (localX <= 38) {
                     if (app.canvas?.canvas) app.canvas.canvas.style.cursor = "grab";
@@ -461,7 +521,7 @@ function setupHubNodeWidgets(node) {
             }
         };
 
-        // 4. Custom Canvas Rendering: On-Canvas Radio Switcher, Dynamic Scrollbar & Selection Status
+        // 4. Custom Canvas Rendering: Streamlined Top Row, Live Selection Bar & On-Canvas Radio Switcher
         const origDrawForeground = node.onDrawForeground;
         node.onDrawForeground = function (ctx) {
             origDrawForeground?.apply(this, arguments);
@@ -471,16 +531,90 @@ function setupHubNodeWidgets(node) {
             const count = presetNames.length;
             const activeName = this.properties?.active_preset || "None";
 
+            ctx.save();
+
+            // Auto-ensure active preset is always visible inside viewport
+            if (!this._dragState?.active) {
+                ensureActivePresetInView(this);
+            }
+
+            // 1. Top Row: [🎯 캔버스 선택 감지: N개 노드 (저장 가능)] + [⚙️ 설정]
+            const btnY = 6;
+            const btnH = TOP_BTN_HEIGHT;
+            const settingBtnW = 74;
+            const settingBtnX = this.size[0] - 10 - settingBtnW;
+            const saveBtnX = 10;
+            const saveBtnW = settingBtnX - 6 - saveBtnX;
+            const selectedNodes = getCurrentlySelectedNodes(this);
+            const selCount = selectedNodes.length;
+
+            // Left Action Button: Selection Watcher + Instant Save Trigger
+            ctx.save();
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(saveBtnX, btnY, saveBtnW, btnH, 5);
+            else ctx.rect(saveBtnX, btnY, saveBtnW, btnH);
+
+            if (selCount > 0) {
+                const saveGrad = ctx.createLinearGradient(saveBtnX, btnY, saveBtnX, btnY + btnH);
+                saveGrad.addColorStop(0, "#0e3a4e");
+                saveGrad.addColorStop(1, "#0a2533");
+                ctx.fillStyle = saveGrad;
+                ctx.fill();
+
+                ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
+
+                ctx.fillStyle = "#38bdf8";
+                ctx.font = "bold 11.5px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(`🎯 캔버스 선택 감지: ${selCount}개 노드 (저장 가능)`, saveBtnX + saveBtnW / 2, btnY + btnH / 2);
+            } else {
+                ctx.fillStyle = "rgba(30, 41, 59, 0.65)";
+                ctx.fill();
+
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = "#94a3b8";
+                ctx.font = "11px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("💡 캔버스에서 노드를 선택하세요 (Ctrl+클릭 / 드래그)", saveBtnX + saveBtnW / 2, btnY + btnH / 2);
+            }
+
+            // Right Action Button: [⚙️ 설정]
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(settingBtnX, btnY, settingBtnW, btnH, 5);
+            else ctx.rect(settingBtnX, btnY, settingBtnW, btnH);
+
+            const setGrad = ctx.createLinearGradient(settingBtnX, btnY, settingBtnX, btnY + btnH);
+            setGrad.addColorStop(0, "#334155");
+            setGrad.addColorStop(1, "#1e293b");
+            ctx.fillStyle = setGrad;
+            ctx.fill();
+
+            ctx.strokeStyle = "rgba(245, 158, 11, 0.55)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 11.5px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("⚙️ 설정", settingBtnX + settingBtnW / 2, btnY + btnH / 2);
+            ctx.restore();
+
+            // 2. Preset List Header Strip
             const listTopY = TOP_CONTROLS_HEIGHT;
-            const listBottomY = this.size[1] - STATUS_FOOTER_HEIGHT - 6;
+            const listBottomY = this.size[1] - BOTTOM_PADDING;
             const listViewHeight = Math.max(10, listBottomY - listTopY);
             const fullContentHeight = HEADER_HEIGHT + count * (ROW_HEIGHT + ROW_GAP);
             const maxScroll = Math.max(0, fullContentHeight - listViewHeight);
             const scrollOffset = Math.max(0, Math.min(maxScroll, this._scrollOffset || 0));
 
-            ctx.save();
-
-            // 1. Draw List Area Header Strip
             ctx.fillStyle = "#f59e0b";
             ctx.font = "bold 11px sans-serif";
             ctx.textAlign = "left";
@@ -492,7 +626,7 @@ function setupHubNodeWidgets(node) {
             ctx.textAlign = "right";
             ctx.fillText("⚡ 클릭하여 즉시 적용", this.size[0] - 12, listTopY + 12);
 
-            // 2. Preset List Viewport with Strict Canvas Clipping
+            // 4. Preset List Viewport with Strict Canvas Clipping
             ctx.save();
             ctx.beginPath();
             ctx.rect(8, listTopY + HEADER_HEIGHT, this.size[0] - 16, Math.max(0, listViewHeight - HEADER_HEIGHT));
@@ -537,67 +671,84 @@ function setupHubNodeWidgets(node) {
                     // Row Background Container
                     ctx.beginPath();
                     if (ctx.roundRect) {
-                        ctx.roundRect(10, rowY, rowW, ROW_HEIGHT, 6);
+                        ctx.roundRect(10, rowY, rowW, ROW_HEIGHT, 4);
                     } else {
                         ctx.rect(10, rowY, rowW, ROW_HEIGHT);
                     }
 
                     if (isActive) {
                         const rowGrad = ctx.createLinearGradient(10, rowY, 10 + rowW, rowY + ROW_HEIGHT);
-                        rowGrad.addColorStop(0, "rgba(245, 158, 11, 0.18)");
-                        rowGrad.addColorStop(1, "rgba(217, 119, 6, 0.08)");
+                        rowGrad.addColorStop(0, "rgba(245, 158, 11, 0.2)");
+                        rowGrad.addColorStop(1, "rgba(217, 119, 6, 0.09)");
                         ctx.fillStyle = rowGrad;
                         ctx.fill();
 
                         ctx.strokeStyle = "rgba(245, 158, 11, 0.85)";
-                        ctx.lineWidth = 1.4;
+                        ctx.lineWidth = 1.3;
                         ctx.stroke();
                     } else {
                         ctx.fillStyle = "rgba(30, 41, 59, 0.7)";
                         ctx.fill();
 
-                        ctx.strokeStyle = "rgba(255, 255, 255, 0.09)";
+                        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
                         ctx.lineWidth = 1;
                         ctx.stroke();
                     }
 
                     // ⠿ Drag Grip Icon
                     ctx.fillStyle = isActive ? "#fcd34d" : "#64748b";
-                    ctx.font = "bold 13px sans-serif";
+                    ctx.font = "bold 11px sans-serif";
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
-                    ctx.fillText("⠿", 22, rowY + ROW_HEIGHT / 2);
+                    ctx.fillText("⠿", 20, rowY + ROW_HEIGHT / 2);
 
-                    // 🌟 Preset Name
+                    // 🟢 Radio Toggle Switch Capsule Dimensions
+                    const switchW = 46;
+                    const switchH = 16;
+                    const switchX = 10 + rowW - switchW - 5;
+                    const switchY = rowY + (ROW_HEIGHT - switchH) / 2;
+
+                    // 🏷️ Target Node Count Tag Measurement
                     const nodeCount = presetData?.targets?.length || 0;
-                    let displayName = name;
-                    if (displayName.length > 18) {
-                        displayName = displayName.slice(0, 16) + "...";
-                    }
-                    const titleText = `🌟 ${displayName}`;
+                    const countTagText = `(${nodeCount}개)`;
+                    ctx.font = "10.5px sans-serif";
+                    const countTagWidth = ctx.measureText(countTagText).width;
+
+                    // 🌟 Dynamic Preset Name Width Calculation (Adapts dynamically when user widens node)
+                    const titleStartX = 30;
+                    const tagGap = 6;
+                    const switchMargin = 8;
+                    const maxTitleWidth = Math.max(50, switchX - switchMargin - countTagWidth - tagGap - titleStartX);
 
                     ctx.font = isActive ? "bold 12px sans-serif" : "12px sans-serif";
+                    let displayName = name;
+                    let titleText = `🌟 ${displayName}`;
+
+                    if (ctx.measureText(titleText).width > maxTitleWidth) {
+                        let truncated = displayName;
+                        while (truncated.length > 1 && ctx.measureText(`🌟 ${truncated}...`).width > maxTitleWidth) {
+                            truncated = truncated.slice(0, -1);
+                        }
+                        titleText = `🌟 ${truncated}...`;
+                    }
+
+                    // Draw Preset Name (Font size 12px fully preserved)
                     ctx.fillStyle = isActive ? "#fef08a" : "#f8fafc";
                     ctx.textAlign = "left";
                     ctx.textBaseline = "middle";
-                    ctx.fillText(titleText, 34, rowY + ROW_HEIGHT / 2);
+                    ctx.fillText(titleText, titleStartX, rowY + ROW_HEIGHT / 2);
 
-                    const nameWidth = ctx.measureText(titleText).width;
+                    const finalTitleWidth = ctx.measureText(titleText).width;
 
-                    // Target Node Count Tag
+                    // Draw Target Node Count Tag
                     ctx.font = "10.5px sans-serif";
                     ctx.fillStyle = isActive ? "#fcd34d" : "#94a3b8";
-                    ctx.fillText(`(${nodeCount}개)`, 34 + nameWidth + 8, rowY + ROW_HEIGHT / 2);
+                    ctx.fillText(countTagText, titleStartX + finalTitleWidth + tagGap, rowY + ROW_HEIGHT / 2);
 
-                    // 🟢 Radio Toggle Switch Capsule (Fast Groups Style)
-                    const switchW = 56;
-                    const switchH = 20;
-                    const switchX = 10 + rowW - switchW - 6;
-                    const switchY = rowY + (ROW_HEIGHT - switchH) / 2;
-
+                    // Draw Switch Capsule
                     ctx.beginPath();
                     if (ctx.roundRect) {
-                        ctx.roundRect(switchX, switchY, switchW, switchH, 10);
+                        ctx.roundRect(switchX, switchY, switchW, switchH, 8);
                     } else {
                         ctx.rect(switchX, switchY, switchW, switchH);
                     }
@@ -616,13 +767,13 @@ function setupHubNodeWidgets(node) {
 
                         // Active "ON" Text
                         ctx.fillStyle = "#ffffff";
-                        ctx.font = "bold 9.5px sans-serif";
+                        ctx.font = "bold 8.5px sans-serif";
                         ctx.textAlign = "left";
-                        ctx.fillText("ON", switchX + 10, switchY + switchH / 2 + 0.5);
+                        ctx.fillText("ON", switchX + 7, switchY + switchH / 2 + 0.5);
 
                         // Knob on Right
                         ctx.beginPath();
-                        ctx.arc(switchX + switchW - 10, switchY + switchH / 2, 7, 0, Math.PI * 2);
+                        ctx.arc(switchX + switchW - 8, switchY + switchH / 2, 5.5, 0, Math.PI * 2);
                         ctx.fillStyle = "#ffffff";
                         ctx.fill();
                     } else {
@@ -636,13 +787,13 @@ function setupHubNodeWidgets(node) {
 
                         // Inactive "OFF" Text
                         ctx.fillStyle = "#64748b";
-                        ctx.font = "bold 9.5px sans-serif";
+                        ctx.font = "bold 8.5px sans-serif";
                         ctx.textAlign = "right";
-                        ctx.fillText("OFF", switchX + switchW - 8, switchY + switchH / 2 + 0.5);
+                        ctx.fillText("OFF", switchX + switchW - 6, switchY + switchH / 2 + 0.5);
 
                         // Knob on Left
                         ctx.beginPath();
-                        ctx.arc(switchX + 10, switchY + switchH / 2, 7, 0, Math.PI * 2);
+                        ctx.arc(switchX + 8, switchY + switchH / 2, 5.5, 0, Math.PI * 2);
                         ctx.fillStyle = "#475569";
                         ctx.fill();
                     }
@@ -672,7 +823,7 @@ function setupHubNodeWidgets(node) {
 
             ctx.restore(); // Restore Clipping & Translation
 
-            // 3. Draw Sleek Modern Scrollbar (when content exceeds viewport)
+            // 5. Draw Sleek Modern Scrollbar (when content exceeds viewport)
             if (maxScroll > 0) {
                 const scrollTrackX = this.size[0] - 10;
                 const scrollTrackY = listTopY + HEADER_HEIGHT + 2;
@@ -700,21 +851,6 @@ function setupHubNodeWidgets(node) {
                 ctx.fill();
             }
 
-            // 4. Bottom Canvas Status Display (Real-Time Selected Nodes Watcher)
-            const selectedNodes = getCurrentlySelectedNodes(this);
-            const selCount = selectedNodes.length;
-
-            ctx.fillStyle = selCount > 0 ? "#38bdf8" : "#94a3b8";
-            ctx.font = "bold 11px sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-
-            if (selCount > 0) {
-                ctx.fillText(`🎯 캔버스 선택 감지: ${selCount}개 노드`, this.size[0] / 2, this.size[1] - 14);
-            } else {
-                ctx.fillText(`💡 캔버스에서 노드를 선택하세요 (Ctrl+클릭 / 드래그)`, this.size[0] / 2, this.size[1] - 14);
-            }
-
             ctx.restore();
         };
     }
@@ -722,27 +858,8 @@ function setupHubNodeWidgets(node) {
     updateHubPresetButton(node);
 }
 
-function getPresetDisplayLabel(node) {
-    const presets = getHubPresets(node);
-    const presetNames = Object.keys(presets);
-    if (presetNames.length === 0) {
-        return "🏷️ [유니버셜 프리셋 관리자] (0개) ▼";
-    }
-
-    const activeName = node?.properties?.active_preset && presets[node.properties.active_preset]
-        ? node.properties.active_preset
-        : presetNames[0];
-
-    const presetData = presets[activeName];
-    const nodeCount = presetData?.targets?.length || 0;
-
-    return `🏷️ [${activeName}] (${nodeCount}개 노드) 관리자 ▼`;
-}
-
 function updateHubPresetButton(node) {
-    if (node._modalBtn) {
-        node._modalBtn.name = getPresetDisplayLabel(node);
-    }
+    // Top action buttons and status indicators are rendered directly on-canvas
 }
 
 /**
