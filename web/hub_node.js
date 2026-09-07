@@ -277,7 +277,7 @@ app.registerExtension({
             }
         }, { passive: false });
 
-        // 2. Real-time canvas selection watcher
+        // 2. Real-time canvas selection watcher (Ctrl+Click & Ctrl+Drag Box Area Selection)
         if (typeof LGraphCanvas !== "undefined") {
             const origProcessMouseDown = LGraphCanvas.prototype.processMouseDown;
             LGraphCanvas.prototype.processMouseDown = function () {
@@ -289,9 +289,28 @@ app.registerExtension({
             const origProcessMouseUp = LGraphCanvas.prototype.processMouseUp;
             LGraphCanvas.prototype.processMouseUp = function () {
                 const res = origProcessMouseUp ? origProcessMouseUp.apply(this, arguments) : false;
-                setTimeout(() => updateAllHubNodes(), 30);
+                setTimeout(() => updateAllHubNodes(), 20);
+                setTimeout(() => updateAllHubNodes(), 100);
                 return res;
             };
+
+            const origSelectNodesInArea = LGraphCanvas.prototype.selectNodesInArea;
+            if (origSelectNodesInArea) {
+                LGraphCanvas.prototype.selectNodesInArea = function () {
+                    const res = origSelectNodesInArea.apply(this, arguments);
+                    setTimeout(() => updateAllHubNodes(), 20);
+                    return res;
+                };
+            }
+
+            const origDeselectAllNodes = LGraphCanvas.prototype.deselectAllNodes;
+            if (origDeselectAllNodes) {
+                LGraphCanvas.prototype.deselectAllNodes = function () {
+                    const res = origDeselectAllNodes.apply(this, arguments);
+                    setTimeout(() => updateAllHubNodes(), 20);
+                    return res;
+                };
+            }
         }
     },
 
@@ -322,24 +341,35 @@ app.registerExtension({
 });
 
 /**
- * Get list of currently selected nodes on canvas
+ * Get list of currently selected nodes on canvas (Supports both Ctrl+Click and Ctrl+Drag Box Area Selection)
  */
 export function getCurrentlySelectedNodes(hubNode) {
-    const selected = [];
-    const canvasSelection = app.canvas?.selected_nodes;
+    const selectedMap = new Map();
 
-    if (canvasSelection && Object.keys(canvasSelection).length > 0) {
-        for (const k in canvasSelection) {
-            const n = canvasSelection[k];
-            if (n && n !== hubNode && n.type !== "UniversalPresetHub" && n.comfyClass !== "UniversalPresetHub") {
-                selected.push(n);
+    // 1. Collect from app.canvas.selected_nodes (Object map: { [id]: node })
+    if (app.canvas?.selected_nodes) {
+        for (const k in app.canvas.selected_nodes) {
+            const n = app.canvas.selected_nodes[k];
+            if (n && n.id !== undefined) {
+                selectedMap.set(n.id, n);
             }
         }
-    } else if (app.graph?._nodes) {
+    }
+
+    // 2. Collect from app.graph._nodes (is_selected flag set by LiteGraph Area/Box selection)
+    if (app.graph?._nodes) {
         for (const n of app.graph._nodes) {
-            if (n.is_selected && n !== hubNode && n.type !== "UniversalPresetHub" && n.comfyClass !== "UniversalPresetHub") {
-                selected.push(n);
+            if (n && n.is_selected && n.id !== undefined) {
+                selectedMap.set(n.id, n);
             }
+        }
+    }
+
+    // 3. Filter out hubNode itself and any UniversalPresetHub nodes
+    const selected = [];
+    for (const [id, n] of selectedMap.entries()) {
+        if (n && n !== hubNode && n.type !== "UniversalPresetHub" && n.comfyClass !== "UniversalPresetHub") {
+            selected.push(n);
         }
     }
 
