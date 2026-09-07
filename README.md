@@ -24,7 +24,7 @@
 ### 1. 🌟 Universal Preset Hub (유니버셜 프리셋 허브)
 - **🔘 온캔버스 슬림 라디오 스위처 (Fast Groups Style)**: 노드 설정창을 열 필요 없이 캔버스 노드 본체에서 직접 `ON/OFF` 클릭 전환 (단일 활성화 독점 스위치)
 - **📏 초슬림 24px 컴팩트 디자인 & 가로폭 적응형 텍스트**: 불필요한 여백을 30% 축소하여 날렵한 슬림 바 형태로 표시하며, 노드 창을 가로로 늘리면 긴 프리셋 제목도 잘림 없이 100% 선명하게 표시
-- **🎯 1열 원터치 선택 감지 & 저장**: 캔버스에서 노드를 선택(`Ctrl+클릭` / 드래그)하면 버튼이 `🎯 캔버스 선택 감지: N개 노드 (저장 가능)`로 실시간 반응하며, 클릭 시 즉시 스냅샷 저장
+- **🎯 1열 원터치 선택 감지 & 저장 (`Ctrl+드래그` & `Ctrl+클릭` 완벽 지원)**: 캔버스에서 노드를 영역 드래그하거나 다중 클릭하면 버튼이 `🎯 캔버스 선택 감지: N개 노드 (저장 가능)`로 실시간 반응하며, 클릭 시 즉시 스냅샷 저장
 - **👁️ 활성 프리셋 자동 화면 노출 (Auto-Scroll into View)**: 프리셋이 10개, 20개 이상으로 많아도 현재 선택된(ON) 프리셋이 항상 화면 뷰포트에 보이도록 스크롤 자동 보정
 - **📡 다중 노드 실시간 무선 미러링 (Cloned Wireless Sync)**: 워크플로우 곳곳에 허브 노드를 여러 개 배치해도 모두 하나의 노드처럼 실시간 동기화 (화면 이동 최소화)
 - **🟣 바이패스(Bypass) & 🔴 뮤트(Mute) 상태 완벽 지원**: 업스케일러, 디테일러, 얼굴 보정 등의 온/오프 분기를 프리셋마다 자유자재로 구성
@@ -37,7 +37,7 @@
 - **🏷️ 2-Tier 지붕 뱃지 (Roof Badges)**: 개별 노드 상단에 `[🌐 N]` (글로벌 프리셋 개수) 및 `[🌟 N]` (유니버셜 허브 연동 개수)가 직관적인 뱃지로 표시되어 원클릭 팝업
 - **🖱️ 우클릭 컨텍스트 메뉴 완벽 통합**: 캔버스의 모든 노드 우클릭 시 `🌐 글로벌 프리셋` 하위 메뉴를 통해 즉시 저장 및 관리자 접근
 - **🌍 ComfyUI 시스템 전역 영구 저장**: 워크플로우 파일과 무관하게 ComfyUI 시스템 전역에 저장되어, 동일 노드라면 어떤 새로운 워크플로우에서도 즉시 재사용
-- **💊 선택적 파라미터 On/Off 알약 태그**: 원하는 파라미터(예: Seed만 제외, CFG만 적용 등)만 켜고 끄는 정밀 제어 지원
+- **💊 선택적 파라미터 On/Off 알약 태그 & 스위치**: 원하는 파라미터(예: Seed만 제외, CFG만 적용 등)만 켜고 끄는 정밀 제어 지원
 
 ---
 
@@ -57,11 +57,34 @@
 
 ---
 
-### 2️⃣ 📋 유니버셜 프리셋 허브 관리자
+### 2️⃣ 🎯 캔버스에서 노드를 선택하는 2가지 방법 (Selection Guide)
+유니버셜 프리셋으로 묶고 싶은 노드들을 캔버스에서 자유롭게 선택할 수 있습니다:
+
+#### 🔹 방법 A. `Ctrl + 마우스 드래그` (Box Area Selection - 영역 일괄 선택)
+넓은 워크플로우 영역을 마우스로 드래그하여 수많은 노드들을 사각형 박스로 한 번에 일괄 선택합니다.
+
+<p align="center">
+  <img src="docs/assets/02_selection_box_drag.png" alt="Ctrl+드래그 영역 박스 선택" width="850">
+</p>
+
+- 박스 안에 포함된 모든 노드가 즉시 감지되며 허브 노드 상단 버튼에 `🎯 캔버스 선택 감지: 11개 노드 (저장 가능)` 형태로 실시간 표시됩니다.
+
+#### 🔹 방법 B. `Ctrl + 마우스 클릭` (Multi-Node Click Selection - 개별 콕콕 선택)
+연결된 특정 핵심 노드들(예: Load Diffusion Model, Load CLIP, Load VAE, KSampler)만 `Ctrl + 클릭`으로 콕콕 집어서 선택합니다.
+
+<p align="center">
+  <img src="docs/assets/03_selection_multi_click.png" alt="Ctrl+클릭 개별 노드 다중 선택" width="850">
+</p>
+
+- 선택된 노드들만 정확하게 취합되어 허브 노드가 `🎯 캔버스 선택 감지: 4개 노드 (저장 가능)`로 즉시 반응합니다.
+
+---
+
+### 3️⃣ 📋 유니버셜 프리셋 허브 관리자
 저장된 유니버셜 프리셋들을 시각적 알약 태그와 함께 검토하고, 순서 변경, 이름 수정, 백업/가져오기를 수행합니다.
 
 <p align="center">
-  <img src="docs/assets/02_universal_hub_modal.png" alt="유니버셜 프리셋 허브 관리자" width="850">
+  <img src="docs/assets/04_universal_hub_modal.png" alt="유니버셜 프리셋 허브 관리자" width="850">
 </p>
 
 - **노드 연동 태그 & 🟣 바이패스 상태 표시**: 각 프리셋에 포함된 노드 요약 및 `(🟣 바이패스)` 실행 모드가 한눈에 파악됩니다.
@@ -70,11 +93,11 @@
 
 ---
 
-### 3️⃣ 🏷️ 개별 노드 2-Tier 지붕 뱃지 (Roof Badges)
+### 4️⃣ 🏷️ 개별 노드 2-Tier 지붕 뱃지 (Roof Badges)
 캔버스의 모든 노드 상단에 프리셋 연동 상태를 알려주는 미려한 2-Tier 뱃지가 자동으로 마운트됩니다.
 
 <p align="center">
-  <img src="docs/assets/03_node_roof_badges.png" alt="2-Tier 지붕 뱃지" width="500">
+  <img src="docs/assets/05_node_roof_badges.png" alt="2-Tier 지붕 뱃지" width="500">
 </p>
 
 - **`[ 🌐 1 ]` (보라색 글로벌 뱃지)**: 이 노드 종류에 저장된 전역 글로벌 프리셋 개수 (클릭 시 글로벌 프리셋 관리자 오픈)
@@ -83,11 +106,11 @@
 
 ---
 
-### 4️⃣ 🖱️ 우클릭 컨텍스트 메뉴 통합
+### 5️⃣ 🖱️ 우클릭 컨텍스트 메뉴 통합
 노드를 우클릭하여 언제 어디서나 손쉽게 글로벌 프리셋을 저장하고 관리할 수 있습니다.
 
 <p align="center">
-  <img src="docs/assets/04_context_menu.png" alt="우클릭 컨텍스트 메뉴" width="600">
+  <img src="docs/assets/06_context_menu.png" alt="우클릭 컨텍스트 메뉴" width="600">
 </p>
 
 - **`💾 현재 세팅 글로벌 프리셋으로 저장...`**: 현재 노드의 파라미터를 즉시 새 글로벌 프리셋으로 저장
@@ -95,11 +118,11 @@
 
 ---
 
-### 5️⃣ 🌐 개별 노드 글로벌 프리셋 관리자 (각 값별 ON/OFF 선택 토글)
+### 6️⃣ 🌐 개별 노드 글로벌 프리셋 관리자 (각 값별 ON/OFF 선택 토글)
 개별 노드의 모든 파라미터를 세밀하게 튜닝하고, **각 값을 개별적으로 켜고 끌 수 있는(ON/OFF)** 독립 프리셋 관리 시스템입니다.
 
 <p align="center">
-  <img src="docs/assets/05_global_preset_modal.png" alt="글로벌 프리셋 관리자 - 파라미터별 ON/OFF 토글" width="850">
+  <img src="docs/assets/07_global_preset_modal.png" alt="글로벌 프리셋 관리자 - 파라미터별 ON/OFF 토글" width="850">
 </p>
 
 - **💡 각 파라미터별 ON/OFF 선택 토글**:
@@ -159,10 +182,12 @@ ComfyUI-Universal-Smart-Presets/
 ├── docs/
 │   └── assets/               # 고화질 가이드 스크린샷 이미지
 │       ├── 01_universal_hub_node.png
-│       ├── 02_universal_hub_modal.png
-│       ├── 03_node_roof_badges.png
-│       ├── 04_context_menu.png
-│       └── 05_global_preset_modal.png
+│       ├── 02_selection_box_drag.png
+│       ├── 03_selection_multi_click.png
+│       ├── 04_universal_hub_modal.png
+│       ├── 05_node_roof_badges.png
+│       ├── 06_context_menu.png
+│       └── 07_global_preset_modal.png
 ├── web/                      # 프론트엔드 웹 확장 소스
 │   ├── smart_presets.js      # 글로벌 프리셋 & 지붕 배지 엔드포인트
 │   ├── presets_modal.js      # 글로벌 프리셋 모달 UI & 스텝퍼
