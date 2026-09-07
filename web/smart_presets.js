@@ -81,17 +81,23 @@ export function getPresetsForNode(node) {
 export function extractNodeState(node) {
     const nodeType = getNodeType(node);
     const isRgthreeLora = nodeType.includes("Power Lora Loader") || (node.widgets && node.widgets.some(w => w.name && w.name.includes("lora")));
+    const isFastGroups = nodeType.includes("Fast Groups") || (node.widgets && node.widgets.some(w => w.type === "custom" && w.group));
+    const mode = (node.mode !== undefined) ? Number(node.mode) : 0;
 
     const state = {
         nodeType: nodeType,
         timestamp: Date.now(),
+        mode: mode,
+        isBypassed: (mode === 4),
+        isMuted: (mode === 2),
         widgets: {},
         _isLoraStack: false,
+        _isFastGroups: false,
     };
 
     if (node.widgets && Array.isArray(node.widgets)) {
         for (const w of node.widgets) {
-            if (!w.name) continue;
+            if (!w.name || w.name === "RGTHREE_TOGGLE_AND_NAV") continue;
             if (typeof w.value === "object" && w.value !== null) {
                 try {
                     state.widgets[w.name] = JSON.parse(JSON.stringify(w.value));
@@ -130,16 +136,49 @@ export function extractNodeState(node) {
         }
     }
 
+    if (isFastGroups) {
+        state._isFastGroups = true;
+        state.groups = {};
+
+        for (const w of node.widgets || []) {
+            const groupName = w.group?.title || (w.label ? w.label.replace(/^Enable\s+/i, "") : null);
+            if (groupName) {
+                const isToggled = w.toggled ?? (typeof w.value === "object" ? w.value?.toggled : Boolean(w.value)) ?? true;
+                state.groups[groupName] = Boolean(isToggled);
+            }
+        }
+    }
+
     return state;
 }
 
 export function applyNodeState(node, presetData) {
     if (!presetData) return;
 
+    // 0. Restore Node Execution Mode (Bypass / Mute / Active)
+    if (presetData.mode !== undefined) {
+        const targetMode = Number(presetData.mode);
+        if (typeof node.setMode === "function") {
+            try {
+                node.setMode(targetMode);
+            } catch (e) {
+                node.mode = targetMode;
+            }
+        } else {
+            node.mode = targetMode;
+        }
+    } else if (presetData.isBypassed) {
+        node.mode = 4;
+    } else if (presetData.isMuted) {
+        node.mode = 2;
+    }
+
     const disabledWidgets = Array.isArray(presetData._disabledWidgets) ? presetData._disabledWidgets : [];
 
+    // 1. Standard Widgets (Safe assignment with callback, excluding special virtual widgets)
     if (presetData.widgets && node.widgets) {
         for (const w of node.widgets) {
+            if (w.name === "RGTHREE_TOGGLE_AND_NAV") continue;
             if (w.name && presetData.widgets[w.name] !== undefined) {
                 // If this widget parameter is turned OFF in preset, preserve existing canvas node value!
                 if (disabledWidgets.includes(w.name)) {
@@ -155,6 +194,32 @@ export function applyNodeState(node, presetData) {
         }
     }
 
+    // 2. Fast Groups Bypasser & Muter (rgthree)
+    if (presetData._isFastGroups && presetData.groups && node.widgets) {
+        for (const w of node.widgets) {
+            const groupName = w.group?.title || (w.label ? w.label.replace(/^Enable\s+/i, "") : null);
+            if (groupName && presetData.groups[groupName] !== undefined) {
+                if (disabledWidgets.includes(groupName)) continue;
+                const targetState = Boolean(presetData.groups[groupName]);
+                if (typeof w.doModeChange === "function") {
+                    try {
+                        w.doModeChange(targetState, true);
+                    } catch (e) {
+                        if (typeof w.toggle === "function") w.toggle(targetState);
+                    }
+                } else if (typeof w.toggle === "function") {
+                    w.toggle(targetState);
+                } else {
+                    w.toggled = targetState;
+                    if (w.value && typeof w.value === "object") {
+                        w.value.toggled = targetState;
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. LoRA Stack (Power Lora Loader)
     if (presetData._isLoraStack) {
         if (presetData.widgets_values && Array.isArray(presetData.widgets_values)) {
             if (node.widgets_values) {
@@ -216,7 +281,7 @@ export function getBadgesForNode(node) {
     const presets = getPresetsForNode(node);
     const globalCount = Object.keys(presets).length;
 
-    // Calculate how many Master Presets in UniversalPresetHub on the current canvas contain this specific node
+    // Calculate how many Unique Universal Presets on the current canvas contain this specific node
     let hubCount = 0;
     let targetHubNode = null;
     const hubNodes = (app.graph?._nodes || []).filter(
@@ -224,13 +289,20 @@ export function getBadgesForNode(node) {
     );
 
     if (hubNodes.length > 0) {
+        const uniquePresets = {};
         for (const hNode of hubNodes) {
             const hubPresets = hNode.properties?.hub_presets || {};
-            for (const p of Object.values(hubPresets)) {
-                if ((p.targets || []).some((t) => t.id === node.id)) {
-                    hubCount++;
-                    if (!targetHubNode) targetHubNode = hNode;
+            for (const [pName, pData] of Object.entries(hubPresets)) {
+                if (!uniquePresets[pName] && pData) {
+                    uniquePresets[pName] = pData;
                 }
+            }
+            if (!targetHubNode) targetHubNode = hNode;
+        }
+
+        for (const p of Object.values(uniquePresets)) {
+            if ((p.targets || []).some((t) => t.id === node.id)) {
+                hubCount++;
             }
         }
     }
@@ -438,9 +510,9 @@ function handleCanvasPointerMove(e) {
             showTooltip(
                 e.clientX + 14,
                 e.clientY + 14,
-                `🌟 마스터 프리셋 연동 (${badgeInfo.count}개)`,
-                `<b>${escapeHtml(title)}</b> 노드가 포함된 ${badgeInfo.count}개의 마스터 프리셋이 허브에 등록되어 있습니다.`,
-                `👉 클릭하여 마스터 프리셋 관리자 열기`,
+                `🌟 유니버셜 프리셋 허브 연동 (${badgeInfo.count}개)`,
+                `<b>${escapeHtml(title)}</b> 노드가 포함된 ${badgeInfo.count}개의 유니버셜 프리셋이 허브에 등록되어 있습니다.`,
+                `👉 클릭하여 유니버셜 프리셋 허브 관리자 열기`,
                 "gold"
             );
         }
@@ -478,6 +550,13 @@ app.registerExtension({
 
     async setup() {
         console.log("[Smart Presets] Initializing 2-Tier Roof Badge System & Tooltips...");
+
+        // Auto-clean any legacy global localStorage hub cache
+        try {
+            localStorage.removeItem("ComfyUI_Master_Hub_Presets_v1");
+            localStorage.removeItem("ComfyUI_Universal_Hub_Presets_v1");
+        } catch (e) {}
+
         loadStylesheet();
         loadPresetsFromStorage();
         createTooltipDOM();

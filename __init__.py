@@ -12,15 +12,15 @@ from server import PromptServer
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PRESETS_FILE = os.path.join(CURRENT_DIR, "presets_data.json")
-HUB_PRESETS_FILE = os.path.join(CURRENT_DIR, "hub_presets_data.json")
 
-# --- Master Preset Hub Node Definition (Clean & Streamlined) ---
+# --- Universal Preset Hub Node Definition (Clean & Streamlined) ---
 
 class UniversalPresetHub:
     """
-    🌟 Universal Preset Hub (마스터 프리셋 허브)
+    🌟 Universal Preset Hub (유니버셜 프리셋 허브)
     선 연결 없이 워크플로우 내 여러 노드(모델, LoRA, 샘플러, CLIP, VAE 등)의 설정을
-    하나의 마스터 프리셋으로 묶어 일괄 저장 및 일괄 적용하는 무선 컨트롤러 노드입니다.
+    하나의 유니버셜 프리셋으로 묶어 일괄 저장 및 일괄 적용하는 무선 컨트롤러 노드입니다.
+    (현재 워크플로우 내부에만 저장되며, 워크플로우 파일 및 생성 이미지 메타데이터에 자동 동봉됩니다.)
     """
     @classmethod
     def INPUT_TYPES(s):
@@ -47,7 +47,7 @@ NODE_CLASS_MAPPINGS = {
     "UniversalPresetHub": UniversalPresetHub
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "UniversalPresetHub": "🌟 Universal Preset Hub (마스터 프리셋 허브)"
+    "UniversalPresetHub": "🌟 Universal Preset Hub (유니버셜 프리셋 허브)"
 }
 
 __all__ = ["WEB_DIRECTORY", "NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

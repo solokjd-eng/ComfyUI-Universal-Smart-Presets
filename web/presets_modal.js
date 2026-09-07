@@ -70,7 +70,7 @@ export function showGuideModal() {
                     <div class="usp-guide-title-box">
                         <div class="usp-guide-icon">💡</div>
                         <div>
-                            <h3 class="usp-guide-title">마스터 프리셋 백업 & 타 워크플로우 적용 가이드</h3>
+                            <h3 class="usp-guide-title">유니버셜 프리셋 허브 백업 & 타 워크플로우 적용 가이드</h3>
                             <p class="usp-guide-subtitle">다른 컴퓨터나 새로운 워크플로우로 프리셋을 안전하게 공유하는 방법</p>
                         </div>
                     </div>
@@ -81,11 +81,12 @@ export function showGuideModal() {
                     <!-- Section 0: Storage Notice -->
                     <div class="usp-guide-section" style="border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); border-radius: 8px; padding: 12px 14px;">
                         <div class="usp-guide-section-title" style="color: #fbbf24; margin-bottom: 6px;">
-                            <span>📌</span> 마스터 허브 프리셋 저장 위치 & 타 워크플로우 적용 안내
+                            <span>📌</span> 유니버셜 프리셋 허브 저장 위치 & 타 워크플로우 적용 안내
                         </div>
                         <p class="usp-guide-text" style="line-height: 1.5;">
-                            • <b>마스터 허브 프리셋</b>은 개별 노드 프리셋과 달리 <b>현재 워크플로우(Hub 노드 데이터) 내부에 저장</b>됩니다.<br>
-                            • 따라서 <b>다른 워크플로우나 다른 PC에 동일한 마스터 프리셋을 적용</b>하려면, 하단의 <b>[📤 백업 (Export)]</b> 버튼으로 <code style="color:#fde68a;">.json</code> 파일을 내보낸 후 대상 워크플로우에서 <b>[📥 불러오기 (Import)]</b>를 이용해 주세요.<br>
+                            • <b>유니버셜 프리셋</b>은 개별 노드의 글로벌 프리셋과 달리 <b>현재 워크플로우(Hub 노드 데이터) 내부에만 저장</b>됩니다.<br>
+                            • 워크플로우를 저장하거나 이미지를 생성하면 메타데이터에 유니버셜 프리셋이 함께 자동 저장됩니다.<br>
+                            • <b>다른 워크플로우나 다른 PC에 동일한 유니버셜 프리셋을 복사/적용</b>하려면, 하단의 <b>[📤 백업 (Export)]</b> 버튼으로 <code style="color:#fde68a;">.json</code> 파일을 내보낸 후 대상 워크플로우에서 <b>[📥 불러오기 (Import)]</b>를 이용해 주세요.<br>
                             • (※ <b>개별 노드의 글로벌 프리셋</b>은 ComfyUI 시스템에 영구 저장되므로 내보내기/가져오기 없이도 모든 워크플로우에서 즉시 공유됩니다.)
                         </p>
                     </div>
@@ -96,7 +97,7 @@ export function showGuideModal() {
                             <span>🎯</span> 1. 스마트 노드 매칭 3단계 작동 원리
                         </div>
                         <p class="usp-guide-text">
-                            마스터 프리셋을 적용할 때, 시스템은 캔버스 상의 노드를 아래 3단계 우선순위로 자동 탐색하여 1:1로 안전하게 매칭합니다:
+                            유니버셜 프리셋을 적용할 때, 시스템은 캔버스 상의 노드를 아래 3단계 우선순위로 자동 탐색하여 1:1로 안전하게 매칭합니다:
                         </p>
                         <div class="usp-guide-code-example">
                             1단계: 노드 고유 번호 (node.id) ➔ 동일 워크플로우 내에서 100% 완벽 매칭<br>
@@ -130,7 +131,7 @@ export function showGuideModal() {
                             <span>📦</span> 3. 모델, LoRA 파일 및 커스텀 노드 설치 확인
                         </div>
                         <p class="usp-guide-text">
-                            • 마스터 프리셋 JSON에는 모델 파일명(예: <code style="color:#38bdf8;">v1-5-pruned.safetensors</code>)과 LoRA 이름, 가중치 수치가 저장됩니다.<br>
+                            • 유니버셜 프리셋 JSON에는 모델 파일명(예: <code style="color:#38bdf8;">v1-5-pruned.safetensors</code>)과 LoRA 이름, 가중치 수치가 저장됩니다.<br>
                             • 타 워크플로우나 다른 PC에서 프리셋을 적용할 때는 해당 체크포인트와 LoRA 파일이 <code style="color:#cbd5e1;">models/</code> 폴더에 실제로 존재해야 자동으로 선택됩니다.<br>
                             • <code style="color:#cbd5e1;">Power Lora Loader</code> 등 전용 커스텀 노드로 저장된 프리셋은 대상 워크플로우에도 해당 노드가 설치되어 있어야 합니다.
                         </p>

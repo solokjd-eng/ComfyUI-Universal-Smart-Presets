@@ -1345,3 +1345,100 @@
     font-size: 1.25rem;
     flex-shrink: 0;
 }
+
+/* Mode Badges and Notices (Bypass & Mute) */
+.usp-chip-mode-badge {
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.usp-chip-mode-badge.bypass {
+    background: rgba(168, 85, 247, 0.2);
+    color: #d8b4fe;
+    border: 1px solid rgba(168, 85, 247, 0.5);
+}
+
+.usp-chip-mode-badge.mute {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.usp-selected-node-chip.bypass {
+    border-color: rgba(168, 85, 247, 0.4);
+    background: rgba(168, 85, 247, 0.05);
+}
+
+.usp-selected-node-chip.mute {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.usp-tag-node.bypass {
+    border-color: rgba(168, 85, 247, 0.4);
+    background: rgba(168, 85, 247, 0.08);
+}
+
+.usp-tag-node.mute {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.usp-tag-node-detail.bypass {
+    color: #c084fc;
+    font-weight: bold;
+}
+
+.usp-tag-node-detail.mute {
+    color: #f87171;
+    font-weight: bold;
+}
+
+.usp-expanded-node-box.bypass {
+    border-color: rgba(168, 85, 247, 0.35);
+}
+
+.usp-expanded-node-box.mute {
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.usp-mode-status-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.usp-mode-status-notice.bypass {
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #e9d5ff;
+}
+
+.usp-mode-status-notice.mute {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #fee2e2;
+}
+
+.usp-mode-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.usp-mode-heading {
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+.usp-mode-sub {
+    font-size: 0.76rem;
+    opacity: 0.85;
+}
+

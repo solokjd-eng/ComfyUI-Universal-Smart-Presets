@@ -55,8 +55,8 @@ function createHubModalDOM() {
                 <div class="usp-header-title-box">
                     <div class="usp-header-icon gold">🌟</div>
                     <div>
-                        <h3 class="usp-header-title">마스터 프리셋 관리자</h3>
-                        <p class="usp-header-subtitle">마스터 프리셋은 <strong>현재 워크플로우에 저장</strong>됩니다 (다른 워크플로우 적용 시 하단 <strong>💡 주의사항 가이드</strong> 참조)</p>
+                        <h3 class="usp-header-title">유니버셜 프리셋 허브 관리자</h3>
+                        <p class="usp-header-subtitle">유니버셜 프리셋은 <strong>현재 워크플로우에만 저장</strong>되며 워크플로우 저장(Ctrl+S) 및 이미지 생성 시 메타데이터에 자동 동봉됩니다</p>
                     </div>
                 </div>
                 <button class="usp-btn-close" id="usp-hub-btn-close" title="Close">✕</button>
@@ -66,7 +66,7 @@ function createHubModalDOM() {
                 <!-- Save Box with Dynamic Live Selection Preview -->
                 <div class="usp-save-bar gold" id="usp-hub-save-box">
                     <div class="usp-save-input-row">
-                        <input type="text" class="usp-input" id="usp-hub-name-input" placeholder="새 마스터 프리셋 이름 입력 (예: KREA2 Turbo 실사 세팅)..." />
+                        <input type="text" class="usp-input" id="usp-hub-name-input" placeholder="새 유니버셜 프리셋 이름 입력 (예: FLUX 디테일러 세팅)..." />
                         <button class="usp-btn usp-btn-gold" id="usp-hub-btn-save">
                             <span>💾</span> 현재 선택 노드로 저장
                         </button>
@@ -136,7 +136,7 @@ function createHubModalDOM() {
                     const data = JSON.parse(event.target.result);
                     onImportMasterCallback(data, currentHubNode);
                     renderHubPresetList();
-                    showToast("📥 마스터 프리셋을 성공적으로 불러왔습니다!", "success");
+                    showToast("📥 유니버셜 프리셋을 성공적으로 불러왔습니다!", "success");
                 } catch (err) {
                     showToast("⚠️ JSON 파일을 읽는 중 오류가 발생했습니다: " + err.message, "warning");
                 }
@@ -180,8 +180,34 @@ function getNodeSummary(node) {
     const title = node.title || nodeType;
     const state = extractNodeState(node);
     const details = [];
+    const mode = (node.mode !== undefined) ? Number(node.mode) : (state.mode || 0);
+    const isBypassed = (mode === 4 || state.isBypassed);
+    const isMuted = (mode === 2 || state.isMuted);
 
-    // 1. LoRA Stack (rgthree Power Lora Loader or multi-lora stacks)
+    // 0. Node Execution Mode Banner
+    if (isBypassed) {
+        details.push({
+            text: "🟣 바이패스 (Bypass) 상태",
+            isBypass: true
+        });
+    } else if (isMuted) {
+        details.push({
+            text: "🔴 뮤트 (Mute) 상태",
+            isMute: true
+        });
+    }
+
+    // 1. Fast Groups Bypasser & Muter (rgthree)
+    if (state._isFastGroups && state.groups) {
+        for (const [gName, gVal] of Object.entries(state.groups)) {
+            details.push({
+                text: `${gName}: ${gVal ? "ON (활성)" : "OFF (바이패스)"}`,
+                isGroup: true
+            });
+        }
+    }
+
+    // 2. LoRA Stack (rgthree Power Lora Loader or multi-lora stacks)
     if (state._isLoraStack && Array.isArray(state.loras)) {
         const activeLoras = state.loras.filter(l => l && l.on !== false && l.lora && l.lora !== "None");
         if (activeLoras.length > 0) {
@@ -198,8 +224,8 @@ function getNodeSummary(node) {
         }
     }
 
-    // 2. Scan standard widgets
-    if (state.widgets) {
+    // 3. Scan standard widgets
+    if (state.widgets && !isBypassed && !isMuted) {
         for (const [key, val] of Object.entries(state.widgets)) {
             if (val === undefined || val === null || val === "" || typeof val === "function") continue;
 
@@ -239,13 +265,16 @@ function getNodeSummary(node) {
     }
 
     if (details.length === 0) {
-        details.push({ text: "기본 파라미터 연동" });
+        details.push({ text: isBypassed ? "바이패스 설정" : "기본 파라미터 연동" });
     }
 
     return {
         title,
         nodeType,
         details,
+        isBypassed,
+        isMuted,
+        mode,
     };
 }
 
@@ -276,15 +305,20 @@ function renderSelectedNodesPreview(hubNode) {
     const chipsHtml = selectedNodes.map(node => {
         const summary = getNodeSummary(node);
         const paramsHtml = summary.details.map(d => {
-            const cls = d.isLora ? "usp-chip-param lora" : (d.isCkpt ? "usp-chip-param ckpt" : "usp-chip-param");
+            const cls = d.isBypass ? "usp-chip-param bypass" : (d.isMute ? "usp-chip-param mute" : (d.isLora ? "usp-chip-param lora" : (d.isCkpt ? "usp-chip-param ckpt" : "usp-chip-param")));
             return `<div class="${cls}" title="${escapeHtml(d.text)}">${escapeHtml(d.text)}</div>`;
         }).join("");
 
+        const modeBadgeHtml = summary.isBypassed
+            ? `<span class="usp-chip-mode-badge bypass">🟣 Bypass</span>`
+            : (summary.isMuted ? `<span class="usp-chip-mode-badge mute">🔴 Mute</span>` : "");
+
         return `
-            <div class="usp-selected-node-chip">
+            <div class="usp-selected-node-chip ${summary.isBypassed ? "bypass" : (summary.isMuted ? "mute" : "")}">
                 <div class="usp-chip-header">
-                    <span class="usp-chip-icon">🎯</span>
+                    <span class="usp-chip-icon">${summary.isBypassed ? "🟣" : (summary.isMuted ? "🔴" : "🎯")}</span>
                     <span class="usp-chip-title" title="${escapeHtml(summary.title)}">${escapeHtml(summary.title)}</span>
+                    ${modeBadgeHtml}
                     <span class="usp-chip-type" title="${escapeHtml(summary.nodeType)}">${escapeHtml(summary.nodeType)}</span>
                 </div>
                 <div class="usp-chip-details">
@@ -300,7 +334,7 @@ function renderSelectedNodesPreview(hubNode) {
                 <div class="usp-preview-header-left">
                     <span class="usp-header-badge gold">🎯 저장 대상 노드: <strong>${count}개 선택됨</strong></span>
                 </div>
-                <span class="usp-selected-hint">※ 아래 노드들의 전체 세팅값이 하나의 마스터 세트로 스냅샷 저장됩니다</span>
+                <span class="usp-selected-hint">※ 아래 노드들의 전체 세팅값이 하나의 유니버셜 프리셋 세트로 스냅샷 저장됩니다</span>
             </div>
             <div class="usp-selected-nodes-grid">
                 ${chipsHtml}
@@ -360,7 +394,7 @@ function handleSaveMaster() {
     const input = document.getElementById("usp-hub-name-input");
     const name = input.value.trim();
     if (!name) {
-        showToast("⚠️ 마스터 프리셋 이름을 입력해 주세요!", "warning");
+        showToast("⚠️ 유니버셜 프리셋 이름을 입력해 주세요!", "warning");
         input.focus();
         return;
     }
@@ -370,7 +404,7 @@ function handleSaveMaster() {
         input.value = "";
         renderHubPresetList();
         renderSelectedNodesPreview(currentHubNode);
-        showToast(`💾 [${name}] 마스터 프리셋이 저장되었습니다! (총 ${selectedNodes.length}개 노드)`, "gold");
+        showToast(`💾 [${name}] 유니버셜 프리셋이 저장되었습니다! (총 ${selectedNodes.length}개 노드)`, "gold");
     }
 }
 
@@ -388,7 +422,7 @@ function renderHubPresetList() {
     if (presetNames.length === 0) {
         container.innerHTML = `
             <div class="usp-empty-notice">
-                저장된 마스터 프리셋이 없습니다.<br>
+                저장된 유니버셜 프리셋이 없습니다.<br>
                 캔버스에서 노드들을 선택(Ctrl+클릭 or Shift+드래그) 후 위 입력창에 이름을 적고 저장해 보세요!
             </div>
         `;
@@ -492,7 +526,7 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
                     expandedHubState.add(newName);
                 }
                 renderHubPresetList();
-                showToast(`✏️ 마스터 프리셋 이름이 [${newName}] (으)로 변경되었습니다.`, "gold");
+                showToast(`✏️ 유니버셜 프리셋 이름이 [${newName}] (으)로 변경되었습니다.`, "gold");
             }
         });
     };
@@ -505,7 +539,7 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
         if (onReorderMasterCallback && index > 0) {
             onReorderMasterCallback(index, index - 1, currentHubNode);
             renderHubPresetList();
-            showToast("↕️ 마스터 프리셋 순서가 변경되었습니다.", "gold");
+            showToast("↕️ 유니버셜 프리셋 순서가 변경되었습니다.", "gold");
         }
     });
 
@@ -513,18 +547,18 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
         if (onReorderMasterCallback && index < totalCount - 1) {
             onReorderMasterCallback(index, index + 1, currentHubNode);
             renderHubPresetList();
-            showToast("↕️ 마스터 프리셋 순서가 변경되었습니다.", "gold");
+            showToast("↕️ 유니버셜 프리셋 순서가 변경되었습니다.", "gold");
         }
     });
 
     // 5. Delete
     card.querySelector('[data-action="delete"]').addEventListener("click", () => {
-        if (confirm(`'${presetName}' 마스터 프리셋을 정말 삭제하시겠습니까?`)) {
+        if (confirm(`'${presetName}' 유니버셜 프리셋을 정말 삭제하시겠습니까?`)) {
             if (onDeleteMasterCallback) {
                 onDeleteMasterCallback(presetName, currentHubNode);
                 expandedHubState.delete(presetName);
                 renderHubPresetList();
-                showToast(`🗑️ [${presetName}] 마스터 프리셋이 삭제되었습니다.`, "warning");
+                showToast(`🗑️ [${presetName}] 유니버셜 프리셋이 삭제되었습니다.`, "warning");
             }
         }
     });
@@ -629,7 +663,7 @@ function setupHubDragAndDrop(container) {
             if (onReorderMasterCallback && fromIndex !== toIndex) {
                 onReorderMasterCallback(fromIndex, toIndex, currentHubNode);
                 renderHubPresetList();
-                showToast("↕️ 마스터 프리셋 순서가 변경되었습니다.", "gold");
+                showToast("↕️ 유니버셜 프리셋 순서가 변경되었습니다.", "gold");
             }
         });
     });
@@ -642,9 +676,21 @@ function generateTargetsPreview(targets) {
 
     return targets.map(t => {
         const title = t.title || t.nodeType || "Node";
-        let detail = "";
+        const isBypassed = t.state?.isBypassed || t.state?.mode === 4;
+        const isMuted = t.state?.isMuted || t.state?.mode === 2;
 
-        if (t.state?._isLoraStack && Array.isArray(t.state.loras)) {
+        if (isBypassed) {
+            return `<span class="usp-tag usp-tag-node bypass"><span class="usp-tag-node-title">${escapeHtml(title)}</span> <span class="usp-tag-node-detail bypass">(🟣 바이패스)</span></span>`;
+        }
+        if (isMuted) {
+            return `<span class="usp-tag usp-tag-node mute"><span class="usp-tag-node-title">${escapeHtml(title)}</span> <span class="usp-tag-node-detail mute">(🔴 뮤트)</span></span>`;
+        }
+
+        let detail = "";
+        if (t.state?._isFastGroups && t.state.groups) {
+            const count = Object.keys(t.state.groups).length;
+            detail = `그룹 ${count}개 제어`;
+        } else if (t.state?._isLoraStack && Array.isArray(t.state.loras)) {
             const activeCount = t.state.loras.filter(l => l && l.on !== false && l.lora && l.lora !== "None").length;
             detail = `LoRA ${activeCount || t.state.loras.length}종`;
         } else if (t.state?.widgets) {
@@ -667,7 +713,43 @@ function generateMasterDeepMatrixHtml(targets) {
     const nodeBoxes = targets.map(t => {
         const title = t.title || t.nodeType || "Node";
         const nodeType = t.nodeType || "Unknown";
+        const isBypassed = t.state?.isBypassed || t.state?.mode === 4;
+        const isMuted = t.state?.isMuted || t.state?.mode === 2;
         const params = [];
+
+        if (isBypassed) {
+            params.push(`
+                <div class="usp-mode-status-notice bypass">
+                    <span class="usp-mode-icon">🟣</span>
+                    <div class="usp-mode-text">
+                        <div class="usp-mode-heading">바이패스 (Bypass) 모드</div>
+                        <div class="usp-mode-sub">이 프리셋 적용 시 노드를 건너뛰고 입력 데이터를 그대로 통과시킵니다.</div>
+                    </div>
+                </div>
+            `);
+        } else if (isMuted) {
+            params.push(`
+                <div class="usp-mode-status-notice mute">
+                    <span class="usp-mode-icon">🔴</span>
+                    <div class="usp-mode-text">
+                        <div class="usp-mode-heading">뮤트 (Mute) 모드</div>
+                        <div class="usp-mode-sub">이 프리셋 적용 시 노드 실행이 완전히 중단됩니다.</div>
+                    </div>
+                </div>
+            `);
+        }
+
+        // Fast Groups (rgthree)
+        if (t.state?._isFastGroups && t.state.groups) {
+            for (const [gName, gVal] of Object.entries(t.state.groups)) {
+                params.push(`
+                    <div class="usp-expanded-param-item">
+                        <span class="usp-param-key">${escapeHtml(gName)}:</span>
+                        <span class="usp-param-val" style="color: ${gVal ? "#38bdf8" : "#94a3b8"}; font-weight: bold;">${gVal ? "ON (활성)" : "OFF (바이패스)"}</span>
+                    </div>
+                `);
+            }
+        }
 
         // LoRAs
         if (t.state?._isLoraStack && Array.isArray(t.state.loras)) {
@@ -707,9 +789,10 @@ function generateMasterDeepMatrixHtml(targets) {
         }
 
         return `
-            <div class="usp-expanded-node-box">
+            <div class="usp-expanded-node-box ${isBypassed ? "bypass" : (isMuted ? "mute" : "")}">
                 <div class="usp-expanded-node-title">
                     <span>${escapeHtml(title)}</span>
+                    ${isBypassed ? '<span class="usp-chip-mode-badge bypass">🟣 Bypass</span>' : (isMuted ? '<span class="usp-chip-mode-badge mute">🔴 Mute</span>' : "")}
                     <span class="usp-expanded-node-type">${escapeHtml(nodeType)}</span>
                 </div>
                 <div class="usp-expanded-params-list">
