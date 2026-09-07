@@ -15,42 +15,21 @@ import { showToast } from "./presets_modal.js";
 
 const HUB_STORAGE_KEY = "ComfyUI_Master_Hub_Presets_v1";
 
-export let hubPresetsStore = {};
+export let hubPresetsStore = {}; // Kept for backwards compatibility
 
-export function loadHubPresetsFromStorage() {
-    try {
-        const local = localStorage.getItem(HUB_STORAGE_KEY);
-        if (local) {
-            hubPresetsStore = JSON.parse(local);
-        }
-    } catch (e) {
-        console.warn("[Hub] Failed to read localStorage:", e);
+/**
+ * Get hub presets dictionary from a UniversalPresetHub node instance
+ */
+export function getHubPresets(hubNode) {
+    if (!hubNode && app.graph?._nodes) {
+        hubNode = app.graph._nodes.find(n => n.type === "UniversalPresetHub" || n.comfyClass === "UniversalPresetHub");
     }
-
-    fetch("/universal_presets/load")
-        .then((res) => res.json())
-        .then((data) => {
-            if (data && data.success && data.hub_presets && Object.keys(data.hub_presets).length > 0) {
-                hubPresetsStore = { ...hubPresetsStore, ...data.hub_presets };
-                localStorage.setItem(HUB_STORAGE_KEY, JSON.stringify(hubPresetsStore));
-                app.graph?.setDirtyCanvas(true, true);
-            }
-        })
-        .catch(() => {});
-}
-
-export function saveHubPresetsToStorage() {
-    try {
-        localStorage.setItem(HUB_STORAGE_KEY, JSON.stringify(hubPresetsStore));
-    } catch (e) {
-        console.warn("[Hub] Failed to save localStorage:", e);
+    if (!hubNode) return {};
+    if (!hubNode.properties) hubNode.properties = {};
+    if (!hubNode.properties.hub_presets || typeof hubNode.properties.hub_presets !== "object") {
+        hubNode.properties.hub_presets = {};
     }
-
-    fetch("/universal_presets/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hub_presets: hubPresetsStore }),
-    }).catch(() => {});
+    return hubNode.properties.hub_presets;
 }
 
 /**
@@ -60,35 +39,40 @@ app.registerExtension({
     name: "ComfyUI.UniversalPresetHub",
 
     async setup() {
-        console.log("[Hub Node] Initializing Streamlined Universal Preset Hub...");
-        loadHubPresetsFromStorage();
+        console.log("[Hub Node] Initializing Workflow-Local Universal Preset Hub...");
 
-        // Initialize Grand Modal Callbacks
+        // Initialize Grand Modal Callbacks with node-scoped data
         initHubModal({
-            getPresets: () => hubPresetsStore,
-            onApply: (presetName, presetData) => {
-                applyMasterPresetToWorkflow(presetData);
+            getPresets: (hubNode) => getHubPresets(hubNode),
+            onApply: (presetName, presetData, hubNode) => {
+                applyMasterPresetToWorkflow(presetData, hubNode);
             },
             onSave: (hubNode, presetName) => {
                 saveMasterPresetFromSelection(hubNode, presetName);
             },
-            onDelete: (presetName) => {
-                delete hubPresetsStore[presetName];
-                saveHubPresetsToStorage();
+            onDelete: (presetName, hubNode) => {
+                const presets = getHubPresets(hubNode);
+                delete presets[presetName];
                 updateAllHubNodes();
+                app.graph?.setDirtyCanvas(true, true);
             },
-            onRename: (oldName, newName) => {
-                if (hubPresetsStore[oldName]) {
-                    const data = hubPresetsStore[oldName];
+            onRename: (oldName, newName, hubNode) => {
+                const presets = getHubPresets(hubNode);
+                if (presets[oldName]) {
+                    const data = presets[oldName];
                     data.name = newName;
-                    delete hubPresetsStore[oldName];
-                    hubPresetsStore[newName] = data;
-                    saveHubPresetsToStorage();
+                    delete presets[oldName];
+                    presets[newName] = data;
+                    if (hubNode?.properties?.active_preset === oldName) {
+                        hubNode.properties.active_preset = newName;
+                    }
                     updateAllHubNodes();
+                    app.graph?.setDirtyCanvas(true, true);
                 }
             },
-            onReorder: (fromIdx, toIdx) => {
-                const entries = Object.entries(hubPresetsStore);
+            onReorder: (fromIdx, toIdx, hubNode) => {
+                const presets = getHubPresets(hubNode);
+                const entries = Object.entries(presets);
                 const [moved] = entries.splice(fromIdx, 1);
                 entries.splice(toIdx, 0, moved);
 
@@ -96,12 +80,15 @@ app.registerExtension({
                 for (const [k, v] of entries) {
                     newStore[k] = v;
                 }
-                hubPresetsStore = newStore;
-                saveHubPresetsToStorage();
+                if (hubNode && hubNode.properties) {
+                    hubNode.properties.hub_presets = newStore;
+                }
                 updateAllHubNodes();
+                app.graph?.setDirtyCanvas(true, true);
             },
-            onExport: () => {
-                const blob = new Blob([JSON.stringify(hubPresetsStore, null, 2)], { type: "application/json" });
+            onExport: (hubNode) => {
+                const presets = getHubPresets(hubNode);
+                const blob = new Blob([JSON.stringify(presets, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
@@ -112,11 +99,12 @@ app.registerExtension({
                 URL.revokeObjectURL(url);
                 showToast("📤 마스터 프리셋 JSON 백업 파일이 다운로드되었습니다.", "info");
             },
-            onImport: (importedData) => {
+            onImport: (importedData, hubNode) => {
                 if (importedData && typeof importedData === "object") {
-                    hubPresetsStore = { ...hubPresetsStore, ...importedData };
-                    saveHubPresetsToStorage();
+                    const presets = getHubPresets(hubNode);
+                    Object.assign(presets, importedData);
                     updateAllHubNodes();
+                    app.graph?.setDirtyCanvas(true, true);
                     showToast("📥 마스터 프리셋을 성공적으로 불러왔습니다!", "success");
                 }
             },
@@ -145,6 +133,13 @@ app.registerExtension({
             setupHubNodeWidgets(node);
         }
     },
+
+    async loadedGraphNode(node) {
+        if (node.comfyClass === "UniversalPresetHub" || node.type === "UniversalPresetHub") {
+            setupHubNodeWidgets(node);
+            updateHubPresetButton(node);
+        }
+    }
 });
 
 /**
@@ -179,6 +174,12 @@ function setupHubNodeWidgets(node) {
     node.size = [320, 130];
     if (!node.properties) node.properties = {};
     if (!node.properties.active_preset) node.properties.active_preset = "None";
+    if (!node.properties.hub_presets) node.properties.hub_presets = {};
+
+    // Remove existing widgets if reconfiguring
+    if (node.widgets && node.widgets.length > 0) {
+        node.widgets = [];
+    }
 
     // 1. Row 1: Clickable Master Preset Selector Button -> Opens Grand Modal
     const presetBtn = node.addWidget("button", getPresetDisplayLabel(node), null, () => {
@@ -194,7 +195,8 @@ function setupHubNodeWidgets(node) {
             return;
         }
 
-        const defaultName = `마스터 세팅 #${Object.keys(hubPresetsStore).length + 1}`;
+        const presets = getHubPresets(node);
+        const defaultName = `마스터 세팅 #${Object.keys(presets).length + 1}`;
         showHubManageModal(node, { focusSave: true, defaultName: defaultName });
     });
     node._saveBtn = saveBtn;
@@ -224,16 +226,17 @@ function setupHubNodeWidgets(node) {
 }
 
 function getPresetDisplayLabel(node) {
-    const presetNames = Object.keys(hubPresetsStore);
+    const presets = getHubPresets(node);
+    const presetNames = Object.keys(presets);
     if (presetNames.length === 0) {
         return "🏷️ 마스터 프리셋: (없음) [클릭하여 관리] ▼";
     }
 
-    const activeName = node?.properties?.active_preset && hubPresetsStore[node.properties.active_preset]
+    const activeName = node?.properties?.active_preset && presets[node.properties.active_preset]
         ? node.properties.active_preset
         : presetNames[0];
 
-    const presetData = hubPresetsStore[activeName];
+    const presetData = presets[activeName];
     const nodeCount = presetData?.targets?.length || 0;
 
     return `🏷️ [${activeName}] (${nodeCount}개 노드) ▼`;
@@ -249,6 +252,11 @@ function updateHubPresetButton(node) {
  * Save snapshot of all currently selected nodes with pos info
  */
 export function saveMasterPresetFromSelection(hubNode, presetName) {
+    if (!hubNode && app.graph?._nodes) {
+        hubNode = app.graph._nodes.find(n => n.type === "UniversalPresetHub" || n.comfyClass === "UniversalPresetHub");
+    }
+    if (!hubNode) return;
+
     const selectedNodes = getCurrentlySelectedNodes(hubNode);
     if (selectedNodes.length === 0) {
         showToast("⚠️ 캔버스에서 선택된 노드가 없습니다.", "warning");
@@ -266,14 +274,14 @@ export function saveMasterPresetFromSelection(hubNode, presetName) {
         });
     }
 
-    hubPresetsStore[presetName] = {
+    const presets = getHubPresets(hubNode);
+    presets[presetName] = {
         name: presetName,
         timestamp: Date.now(),
         targets: targetsData,
     };
 
-    saveHubPresetsToStorage();
-    if (hubNode) {
+    if (hubNode.properties) {
         hubNode.properties.active_preset = presetName;
     }
     updateAllHubNodes();
@@ -286,7 +294,7 @@ export function saveMasterPresetFromSelection(hubNode, presetName) {
  * 2. Exact Custom Title + NodeType match (Cross-workflow renamed nodes)
  * 3. Sequential 1:1 NodeType match ordered by relative canvas X position (Zero duplication)
  */
-export function applyMasterPresetToWorkflow(presetData) {
+export function applyMasterPresetToWorkflow(presetData, hubNode = null) {
     if (!presetData || !Array.isArray(presetData.targets)) {
         showToast("⚠️ 유효하지 않은 마스터 프리셋 데이터입니다.", "warning");
         return;
@@ -353,7 +361,10 @@ export function applyMasterPresetToWorkflow(presetData) {
         }
     }
 
-    if (graph._nodes) {
+    if (hubNode && hubNode.properties) {
+        hubNode.properties.active_preset = presetData.name;
+        updateHubPresetButton(hubNode);
+    } else if (graph._nodes) {
         for (const n of graph._nodes) {
             if (n.comfyClass === "UniversalPresetHub" || n.type === "UniversalPresetHub") {
                 n.properties.active_preset = presetData.name;

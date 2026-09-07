@@ -164,14 +164,12 @@ ComfyUI-Universal-Smart-Presets/
 │       ├── hub_02_canvas_selected.png
 │       ├── hub_03_modal_save_preview.png
 │       ├── hub_04_master_preset_card.png
-│       └── hub_05_matrix_detail_view.png
-├── js/                       # 프론트엔드 웹 확장 소스
+├── web/                      # 프론트엔드 웹 확장 소스 (자동 서빙)
 │   ├── smart_presets.js      # 글로벌 프리셋 & 지붕 배지 엔드포인트
 │   ├── presets_modal.js      # 글로벌 프리셋 모달 UI & 스텝퍼
 │   ├── presets_modal.css     # Pro Dark 1.5x 대형화 스타일시트
 │   ├── hub_node.js           # 마스터 허브 노드 & 3단계 매칭 엔진
 │   └── hub_modal.js          # 마스터 허브 전용 관리 모달창
-└── web/                      # 웹 확장 배포 디렉토리
 ```
 
 ---

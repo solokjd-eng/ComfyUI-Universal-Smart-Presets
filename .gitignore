@@ -4,3 +4,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 *.log
+presets_data.json
+hub_presets_data.json

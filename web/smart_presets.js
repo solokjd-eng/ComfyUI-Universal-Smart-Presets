@@ -216,10 +216,24 @@ export function getBadgesForNode(node) {
     const presets = getPresetsForNode(node);
     const globalCount = Object.keys(presets).length;
 
-    // Calculate how many Master Presets in Hub contain this node
-    const hubCount = Object.values(hubPresetsStore || {}).filter(
-        (p) => (p.targets || []).some((t) => t.id === node.id || (t.nodeType && t.nodeType === (node.comfyClass || node.type)))
-    ).length;
+    // Calculate how many Master Presets in UniversalPresetHub on the current canvas contain this specific node
+    let hubCount = 0;
+    let targetHubNode = null;
+    const hubNodes = (app.graph?._nodes || []).filter(
+        (n) => n.type === "UniversalPresetHub" || n.comfyClass === "UniversalPresetHub"
+    );
+
+    if (hubNodes.length > 0) {
+        for (const hNode of hubNodes) {
+            const hubPresets = hNode.properties?.hub_presets || {};
+            for (const p of Object.values(hubPresets)) {
+                if ((p.targets || []).some((t) => t.id === node.id)) {
+                    hubCount++;
+                    if (!targetHubNode) targetHubNode = hNode;
+                }
+            }
+        }
+    }
 
     if (globalCount === 0 && hubCount === 0) return null;
 
@@ -238,7 +252,7 @@ export function getBadgesForNode(node) {
 
     if (hubCount > 0) {
         const w = 46;
-        result.hub = { x: curX, y: tabY, w: w, h: tabHeight, count: hubCount };
+        result.hub = { x: curX, y: tabY, w: w, h: tabHeight, count: hubCount, hubNode: targetHubNode };
     }
 
     return result;
@@ -394,6 +408,7 @@ function findBadgeAtScreenPos(clientX, clientY) {
                     type: "hub",
                     node: n,
                     count: b.count,
+                    hubNode: b.hubNode,
                 };
             }
         }
@@ -449,7 +464,7 @@ function handleCanvasPointerDown(e) {
         if (badgeInfo.type === "global") {
             showPresetModal(badgeInfo.node);
         } else {
-            const hubNode = (app.graph?._nodes || []).find(n => n.type === "UniversalPresetHub" || n.comfyClass === "UniversalPresetHub");
+            const hubNode = badgeInfo.hubNode || (app.graph?._nodes || []).find(n => n.type === "UniversalPresetHub" || n.comfyClass === "UniversalPresetHub");
             showHubManageModal(hubNode || null);
         }
         return false;

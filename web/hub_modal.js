@@ -122,7 +122,7 @@ function createHubModalDOM() {
 
     // Export / Import
     document.getElementById("usp-hub-btn-export").addEventListener("click", () => {
-        if (onExportMasterCallback) onExportMasterCallback();
+        if (onExportMasterCallback) onExportMasterCallback(currentHubNode);
     });
 
     const fileInput = document.getElementById("usp-hub-import-input");
@@ -134,7 +134,7 @@ function createHubModalDOM() {
             reader.onload = (event) => {
                 try {
                     const data = JSON.parse(event.target.result);
-                    onImportMasterCallback(data);
+                    onImportMasterCallback(data, currentHubNode);
                     renderHubPresetList();
                     showToast("📥 마스터 프리셋을 성공적으로 불러왔습니다!", "success");
                 } catch (err) {
@@ -378,7 +378,11 @@ function renderHubPresetList() {
     const container = document.getElementById("usp-hub-presets-container");
     container.innerHTML = "";
 
-    const presets = getHubPresetsCallback ? getHubPresetsCallback() : {};
+    if (!currentHubNode && app.graph?._nodes) {
+        currentHubNode = app.graph._nodes.find(n => n.type === "UniversalPresetHub" || n.comfyClass === "UniversalPresetHub") || null;
+    }
+
+    const presets = getHubPresetsCallback ? getHubPresetsCallback(currentHubNode) : (currentHubNode?.properties?.hub_presets || {});
     const presetNames = Object.keys(presets);
 
     if (presetNames.length === 0) {
@@ -455,7 +459,7 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
     card.querySelector('[data-action="apply"]').addEventListener("click", () => {
         closeHubModal();
         if (onApplyMasterCallback) {
-            onApplyMasterCallback(presetName, presetData);
+            onApplyMasterCallback(presetName, presetData, currentHubNode);
         }
     });
 
@@ -482,7 +486,7 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
     const triggerInlineRename = () => {
         startMasterInlineRename(card, presetName, (newName) => {
             if (onRenameMasterCallback) {
-                onRenameMasterCallback(presetName, newName);
+                onRenameMasterCallback(presetName, newName, currentHubNode);
                 if (expandedHubState.has(presetName)) {
                     expandedHubState.delete(presetName);
                     expandedHubState.add(newName);
@@ -499,7 +503,7 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
     // 4. Reorder Up / Down
     card.querySelector('[data-action="up"]').addEventListener("click", () => {
         if (onReorderMasterCallback && index > 0) {
-            onReorderMasterCallback(index, index - 1);
+            onReorderMasterCallback(index, index - 1, currentHubNode);
             renderHubPresetList();
             showToast("↕️ 마스터 프리셋 순서가 변경되었습니다.", "gold");
         }
@@ -507,7 +511,7 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
 
     card.querySelector('[data-action="down"]').addEventListener("click", () => {
         if (onReorderMasterCallback && index < totalCount - 1) {
-            onReorderMasterCallback(index, index + 1);
+            onReorderMasterCallback(index, index + 1, currentHubNode);
             renderHubPresetList();
             showToast("↕️ 마스터 프리셋 순서가 변경되었습니다.", "gold");
         }
@@ -517,7 +521,7 @@ function createMasterPresetCard(presetName, presetData, index, totalCount) {
     card.querySelector('[data-action="delete"]').addEventListener("click", () => {
         if (confirm(`'${presetName}' 마스터 프리셋을 정말 삭제하시겠습니까?`)) {
             if (onDeleteMasterCallback) {
-                onDeleteMasterCallback(presetName);
+                onDeleteMasterCallback(presetName, currentHubNode);
                 expandedHubState.delete(presetName);
                 renderHubPresetList();
                 showToast(`🗑️ [${presetName}] 마스터 프리셋이 삭제되었습니다.`, "warning");
@@ -623,7 +627,7 @@ function setupHubDragAndDrop(container) {
             const toIndex = parseInt(card.dataset.index, 10);
 
             if (onReorderMasterCallback && fromIndex !== toIndex) {
-                onReorderMasterCallback(fromIndex, toIndex);
+                onReorderMasterCallback(fromIndex, toIndex, currentHubNode);
                 renderHubPresetList();
                 showToast("↕️ 마스터 프리셋 순서가 변경되었습니다.", "gold");
             }

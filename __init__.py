@@ -53,37 +53,30 @@ NODE_DISPLAY_NAME_MAPPINGS = {
 __all__ = ["WEB_DIRECTORY", "NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 
 
-# --- Backend Persistence API ---
+# --- Backend Persistence API (Global Node Presets Only) ---
 
 @PromptServer.instance.routes.get("/universal_presets/load")
 async def load_presets_handler(request):
-    """Load all presets from backend JSON file."""
+    """Load global node presets from backend JSON file."""
     try:
         data = {}
-        hub_data = {}
         if os.path.exists(PRESETS_FILE):
             with open(PRESETS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-        if os.path.exists(HUB_PRESETS_FILE):
-            with open(HUB_PRESETS_FILE, "r", encoding="utf-8") as f:
-                hub_data = json.load(f)
-        return web.json_response({"success": True, "presets": data, "hub_presets": hub_data})
+        return web.json_response({"success": True, "presets": data, "hub_presets": {}})
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
 @PromptServer.instance.routes.post("/universal_presets/save")
 async def save_presets_handler(request):
-    """Save all presets to backend JSON file."""
+    """Save global node presets to backend JSON file."""
     try:
         body = await request.json()
         if "presets" in body:
             with open(PRESETS_FILE, "w", encoding="utf-8") as f:
                 json.dump(body["presets"], f, ensure_ascii=False, indent=2)
-        if "hub_presets" in body:
-            with open(HUB_PRESETS_FILE, "w", encoding="utf-8") as f:
-                json.dump(body["hub_presets"], f, ensure_ascii=False, indent=2)
-        return web.json_response({"success": True, "message": "Presets saved successfully"})
+        return web.json_response({"success": True, "message": "Global presets saved successfully"})
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
